@@ -1,4 +1,4 @@
-# Modified for the CPU-friendly fork: legacy chaining is tested with CPU admission disabled.
+# Modified for the CPU-friendly fork: upstream chaining is tested with fork defaults.
 
 """Lossless-then-lossy dispatch.
 
@@ -55,7 +55,6 @@ def _diff_block() -> str:
 def _router(*, lossless_then_lossy, lossless=False, ccr=False, kompress=None):
     r = ContentRouter(
         ContentRouterConfig(
-            skip_redundant_ml=False,
             lossless=lossless,
             lossless_then_lossy=lossless_then_lossy,
             ccr_inject_marker=ccr,

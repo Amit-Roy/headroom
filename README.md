@@ -1,4 +1,4 @@
-> **Fork notice (2026-10-21):** This CPU-focused fork changes native thread defaults and neural second-pass admission. See [CPU_FORK.md](CPU_FORK.md) for measured tradeoffs, controls, and limitations. Upstream documentation follows.
+> **Fork notice (2026-10-21):** This CPU-focused fork limits native ONNX threads while preserving upstream neural compression by default. See [CPU_FORK.md](CPU_FORK.md) for equivalence checks, optional tradeoffs, controls, and limitations. Upstream documentation follows.
 
 <div align="center">
 

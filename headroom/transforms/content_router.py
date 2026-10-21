@@ -1968,8 +1968,10 @@ class ContentRouterConfig:
     # never lossy-chained (Kompressing hunks breaks `git apply`). No-op in
     # lossless-only mode. Env: HEADROOM_LOSSLESS_THEN_LOSSY=1.
     lossless_then_lossy: bool = False
-    # Keep structural wins without spending inference on a small remainder.
-    skip_redundant_ml: bool = field(default=True, kw_only=True)
+    # Opt in to skipping neural second passes after substantial structural wins
+    # or on small remainders. This reduces inference work but can reduce savings.
+    # The default preserves upstream compression behavior.
+    skip_redundant_ml: bool = field(default=False, kw_only=True)
     ml_layer_min_tokens: int = field(default=256, kw_only=True)
     ml_layer_max_structural_savings: float = field(default=0.5, kw_only=True)
     min_section_tokens: int = 20  # Min tokens to compress a section
@@ -3844,10 +3846,10 @@ class ContentRouter(Transform):
         return output.content
 
     def _should_layer_ml(self, original_tokens: int, residual_tokens: int) -> bool:
-        """Admit a neural second pass only when enough useful work remains.
+        """Preserve neural chaining unless the caller opts into skipping work.
 
-        This gate never changes the structural result. Operators can restore
-        upstream chaining with HEADROOM_SKIP_REDUNDANT_ML=0 or the config flag.
+        The optional gate returns the structural result without further neural
+        reduction. HEADROOM_SKIP_REDUNDANT_ML=0 disables an SDK opt-in.
         """
         enabled = self.config.skip_redundant_ml and os.environ.get(
             "HEADROOM_SKIP_REDUNDANT_ML", "1"
