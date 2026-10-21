@@ -1,72 +1,89 @@
 # CPU-friendly Headroom fork
 
-This fork targets predictable CPU use on a shared CPU-only host. It keeps the
-upstream compression pipeline and model, with two conservative changes:
+This fork targets lower CPU cost while preserving upstream compression behavior.
+Native ONNX sessions default to one intra-operation thread and one inter-operation
+thread. Explicit caller values and existing model-specific thread overrides retain
+precedence. Existing idle-spin protections remain. The model, thresholds, chunk
+sizes, request budgets, and structural compressors are unchanged.
 
-- Native ONNX sessions default to one intra-operation thread and one
-  inter-operation thread. Explicit caller values and existing model-specific
-  thread settings retain precedence. Existing idle-spin protections remain.
-- A neural second pass is skipped after a structural or lossless result when
-  fewer than 256 estimated tokens remain, or the first pass already removed
-  at least 50%. The structural result is returned unchanged. Direct prose
-  compression remains available.
+## Compression policy
 
-The second rule trades some possible additional token reduction for lower
-CPU use, latency, and preservation of more original content. It is not a claim
-that neural compression never helps.
+Neural second passes now run under the same admission rules as upstream by
+default. The first fork patch skipped them after substantial structural savings;
+that reduced token savings from 80.23% to 52.25% on one search fixture. Skipping
+inference is a compression tradeoff, not an equivalent-output optimization.
+
+SDK callers may explicitly choose that tradeoff with
+`ContentRouterConfig(skip_redundant_ml=True)`. It skips a second pass if fewer
+than 256 estimated tokens remain or structural savings reach 50%. The two
+thresholds remain configurable. `HEADROOM_SKIP_REDUNDANT_ML=0` disables an SDK
+opt-in; setting it to `1` does not enable skipping by itself.
 
 ## Validation
 
-The implementation was checked against 180 focused tests covering ONNX options,
-thread overrides, routing admission, lossless chaining, Kompress safeguards,
-and deadlines; 11 tests skipped for optional dependencies.
+184 focused tests passed; 11 skipped for optional dependencies. Coverage includes
+default chaining after folded search and structural logs, explicit skipping,
+ONNX thread overrides, lossless-only routing, Kompress safeguards, and deadlines.
 
-An isolated cached-model comparison used the same 139-line search output and
-`chopratejas/kompress-v2-base` on an eight-core Linux CPU host. Both models
-finished loading before measurement. Times exclude model loading and provider
-inference. Tokens use `cl100k_base`, not provider billing.
+Cached-model diagnostics compare the original upstream commit `fbf7bc3` with this
+fork. Both use the same cached `chopratejas/kompress-v2-base` ONNX weights and
+compression settings. Counts use `cl100k_base`, not provider billing. Request
+wall and process CPU times exclude model loading. Each condition runs in its own
+subprocess, sequentially, on the same shared eight-core Linux host.
 
-| Measurement | Upstream | CPU-friendly fork |
-|---|---:|---:|
-| Native ONNX intra/inter threads | Automatic / automatic | 1 / 1 |
-| Measured request wall time | 10.689 seconds | 0.037 seconds |
-| Measured request CPU time | 25.330 seconds | 0.037 seconds |
-| Input tokens | 2,641 | 2,641 |
-| Forwarded content tokens | 522 | 1,261 |
-| Token reduction | 80.23% | 52.25% |
-| Neural second passes | 1 | 0 |
-| Exact structural recovery | No | Yes |
-| Peak process RSS, including model loading | 923.0 MiB | 532.0 MiB |
+The benchmark checks identical input/output SHA-256 hashes, forwarded token
+counts, and neural-call counts. Two synthetic fixtures cover repeated search
+paths and service notes. These checks establish equivalent outputs on those
+fixtures, not general task accuracy or representative production savings.
 
-This is one diagnostic workload, not a representative production benchmark.
-The lower inference work accounts for most of the improvement. A separate
-admission-only run returned identical structural output in both checkouts.
-Neither comparison measures end-to-end agent accuracy, streaming behavior,
-CCR retrieval, concurrent workloads, or provider cache costs.
+## Equivalent-output measurements
 
-Reproduce without loading a model:
+| Fixture | Forwarded tokens, both | Savings, both | CPU seconds, upstream / fork | Wall seconds, upstream / fork |
+|---|---:|---:|---:|---:|
+| repeated_search_paths | 522 | 80.23% | 29.632 / 9.966 | 23.961 / 10.421 |
+| service_notes | 349 | 10.51% | 22.766 / 6.654 | 13.897 / 6.973 |
+
+Output hashes and neural-call counts matched for both fixtures. Search CPU time
+fell 66.4%; service-note CPU time fell 70.8%. These are single paired measurements
+on a busy shared host, not stable production latency guarantees.
+
+Raw results: `benchmarks/results/cpu-equivalence.json`. A longer four-run
+comparison exceeded the upstream process deadline of 85 seconds; the fork
+completed with consistent hashes across repeats. That incomplete comparison
+is retained as `cpu-equivalence-stress.json` and does not establish paired
+performance or equivalence for the timed-out condition.
+
+## Reproduction
 
 ```bash
-python benchmarks/bench_cpu_fork.py --baseline-root /path/to/upstream
+python benchmarks/bench_cpu_fork.py \
+  --baseline-root /path/to/upstream-fbf7bc3 \
+  --with-model --include-prose --verify-output-equivalence --timeout 85 \
+  --output /tmp/cpu-equivalence.json
 ```
 
-Add `--with-model` to load locally cached weights and measure real inference.
-Each checkout runs in a separate subprocess with a 45-second deadline. No
-model downloads or provider requests are made. The benchmark requires the
-normal runtime dependencies and a native extension built for each checkout.
+`--repeats N` repeats each fixture after loading. No provider calls or model
+downloads are made. Exit status is 1 for an execution failure and 2 for output
+inequivalence. A timeout is not treated as equivalent compression. Completed
+worker progress is retained in timeout reports. Omit `--with-model` and the
+verification flag to use a no-op neural stand-in for a routing-only audit.
+
+The normal runtime dependencies and native extension are required. Use an
+unmodified upstream checkout as the baseline; the fork's `main` is not upstream.
+Historical admission-only reports remain in `benchmarks/results/cpu-*.json`;
+they describe the first patch rather than current defaults.
 
 ## Controls and limitations
 
-Set `HEADROOM_SKIP_REDUNDANT_ML=0` to restore upstream neural layering.
-SDK callers can instead set `ContentRouterConfig(skip_redundant_ml=False)`;
-the residual-size and savings thresholds are configurable on that dataclass.
 Existing `HEADROOM_KOMPRESS_ONNX_INTRA_THREADS` and
-`HEADROOM_KOMPRESS_ONNX_INTER_THREADS` overrides still work.
+`HEADROOM_KOMPRESS_ONNX_INTER_THREADS` overrides still work. Explicit `0` restores
+ONNX automatic thread sizing. Single-thread inference can occupy one core while
+running; reduced CPU-seconds do not imply a fixed CPU-percentage ceiling.
 
-These changes do not provide hard cancellation of running native inference.
-Direct neural compression can still be slow. Keep external resource limits,
-request timeouts, and direct-provider fallback when testing this fork. The
-live Agent Console installation is not changed by these source patches.
+Native inference still cannot be cancelled mid-call. Deadlines are cooperative,
+and direct neural compression can remain slow. These source patches do not
+change the live Agent Console installation. Live rollout requires separate
+integration and fallback validation.
 
 The original Apache-2.0 license and attribution notices are retained. Modified
 upstream files carry a notice describing the fork's changes.
