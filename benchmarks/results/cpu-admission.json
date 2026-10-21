@@ -1,0 +1,44 @@
+{
+  "mode": "admission_only",
+  "tokenizer": "cl100k_base",
+  "results": [
+    {
+      "checkout": "upstream",
+      "model": null,
+      "measurements": [
+        {
+          "sample": "repeated_search_paths",
+          "wall_seconds": 0.06797318696044385,
+          "cpu_seconds": 0.068216257,
+          "neural_calls": 1,
+          "before_tokens": 2641,
+          "after_tokens": 1261,
+          "tokens_saved_percent": 52.25293449450965,
+          "output_sha256": "39d130ecdfd1589bfefa4d51dc9db9f0790dcb33df7c184e4a31bde54cf999cb",
+          "critical_identifier_retained": true,
+          "exact_recovery": true,
+          "peak_rss_mib": 69.7578125
+        }
+      ]
+    },
+    {
+      "checkout": "cpu_fork",
+      "model": null,
+      "measurements": [
+        {
+          "sample": "repeated_search_paths",
+          "wall_seconds": 0.05957992700859904,
+          "cpu_seconds": 0.05976804399999991,
+          "neural_calls": 0,
+          "before_tokens": 2641,
+          "after_tokens": 1261,
+          "tokens_saved_percent": 52.25293449450965,
+          "output_sha256": "39d130ecdfd1589bfefa4d51dc9db9f0790dcb33df7c184e4a31bde54cf999cb",
+          "critical_identifier_retained": true,
+          "exact_recovery": true,
+          "peak_rss_mib": 70.05078125
+        }
+      ]
+    }
+  ]
+}

@@ -1,3 +1,5 @@
+# Modified for the CPU-friendly fork: CPU session defaults and explicit thread overrides.
+
 import os
 import sys
 
@@ -39,6 +41,56 @@ class _FakeSessionOptionsWithoutToggles:
 
 class _FakeOrtWithoutToggles:
     SessionOptions = _FakeSessionOptionsWithoutToggles
+
+
+def test_create_cpu_session_options_defaults_to_single_native_thread():
+    options = create_cpu_session_options(_FakeOrt)
+
+    assert options.intra_op_num_threads == 1
+    assert options.inter_op_num_threads == 1
+
+
+def test_create_cpu_session_options_preserves_explicit_auto_sizing():
+    options = create_cpu_session_options(_FakeOrt, intra_op_num_threads=0, inter_op_num_threads=0)
+
+    assert options.intra_op_num_threads == 0
+    assert options.inter_op_num_threads == 0
+
+
+def test_kompress_session_options_inherit_single_thread_defaults(monkeypatch):
+    from headroom.transforms import kompress_compressor
+
+    monkeypatch.delenv("HEADROOM_KOMPRESS_ONNX_INTRA_THREADS", raising=False)
+    monkeypatch.delenv("HEADROOM_KOMPRESS_ONNX_INTER_THREADS", raising=False)
+
+    options = kompress_compressor._onnx_session_options(_FakeOrt)
+
+    assert options.intra_op_num_threads == 1
+    assert options.inter_op_num_threads == 1
+
+
+def test_kompress_session_options_keep_operator_thread_caps(monkeypatch):
+    from headroom.transforms import kompress_compressor
+
+    monkeypatch.setenv("HEADROOM_KOMPRESS_ONNX_INTRA_THREADS", "3")
+    monkeypatch.setenv("HEADROOM_KOMPRESS_ONNX_INTER_THREADS", "2")
+
+    options = kompress_compressor._onnx_session_options(_FakeOrt)
+
+    assert options.intra_op_num_threads == 3
+    assert options.inter_op_num_threads == 2
+
+
+def test_kompress_session_options_invalid_caps_use_safe_defaults(monkeypatch):
+    from headroom.transforms import kompress_compressor
+
+    monkeypatch.setenv("HEADROOM_KOMPRESS_ONNX_INTRA_THREADS", "invalid")
+    monkeypatch.setenv("HEADROOM_KOMPRESS_ONNX_INTER_THREADS", "-1")
+
+    options = kompress_compressor._onnx_session_options(_FakeOrt)
+
+    assert options.intra_op_num_threads == 1
+    assert options.inter_op_num_threads == 1
 
 
 def test_create_cpu_session_options_disables_retention_features(monkeypatch):
@@ -114,8 +166,8 @@ def test_create_cpu_session_options_handles_older_session_options(monkeypatch):
 
     options = create_cpu_session_options(_FakeOrtWithoutToggles)
 
-    assert options.intra_op_num_threads is None
-    assert options.inter_op_num_threads is None
+    assert options.intra_op_num_threads == 1
+    assert options.inter_op_num_threads == 1
 
 
 def test_thread_spinning_disabled_by_default(monkeypatch):

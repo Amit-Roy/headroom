@@ -32,6 +32,8 @@ Pipeline Usage:
     ... ])
 """
 
+# Modified for the CPU-friendly fork: skip low-value neural compression layers.
+
 from __future__ import annotations
 
 import asyncio
@@ -1966,6 +1968,10 @@ class ContentRouterConfig:
     # never lossy-chained (Kompressing hunks breaks `git apply`). No-op in
     # lossless-only mode. Env: HEADROOM_LOSSLESS_THEN_LOSSY=1.
     lossless_then_lossy: bool = False
+    # Keep structural wins without spending inference on a small remainder.
+    skip_redundant_ml: bool = field(default=True, kw_only=True)
+    ml_layer_min_tokens: int = field(default=256, kw_only=True)
+    ml_layer_max_structural_savings: float = field(default=0.5, kw_only=True)
     min_section_tokens: int = 20  # Min tokens to compress a section
 
     # Fallback: Kompress handles unknown/mixed content instead of passing through
@@ -3837,6 +3843,22 @@ class ContentRouter(Transform):
             return content
         return output.content
 
+    def _should_layer_ml(self, original_tokens: int, residual_tokens: int) -> bool:
+        """Admit a neural second pass only when enough useful work remains.
+
+        This gate never changes the structural result. Operators can restore
+        upstream chaining with HEADROOM_SKIP_REDUNDANT_ML=0 or the config flag.
+        """
+        enabled = self.config.skip_redundant_ml and os.environ.get(
+            "HEADROOM_SKIP_REDUNDANT_ML", "1"
+        ).strip().lower() not in {"0", "false", "off", "no"}
+        if not enabled:
+            return True
+        if original_tokens <= 0 or residual_tokens < self.config.ml_layer_min_tokens:
+            return False
+        savings = 1 - residual_tokens / original_tokens
+        return savings < self.config.ml_layer_max_structural_savings
+
     def _apply_strategy_to_content(
         self,
         content: str,
@@ -3969,6 +3991,7 @@ class ContentRouter(Transform):
                 and strategy != CompressionStrategy.DIFF
                 and _ll_label != "lossless_diff"
                 and not self._looks_like_diff(content)
+                and self._should_layer_ml(original_tokens, _estimate_tokens(_ll_content))
             )
             if _lossy_after_fold:
                 _fold_tokens = _estimate_tokens(_ll_content)
@@ -4377,6 +4400,7 @@ class ContentRouter(Transform):
                     CompressionStrategy.HTML,
                 }
                 and not self._looks_like_diff(content)
+                and self._should_layer_ml(original_tokens, compressed_tokens)
             ):
                 try:
                     _layer_k, _layer_kt = self._try_ml_compressor(compressed, context, question)

@@ -1,5 +1,7 @@
 """ONNX Runtime helpers for long-running Headroom processes."""
 
+# Modified for the CPU-friendly fork: native CPU sessions default to one thread.
+
 from __future__ import annotations
 
 import ctypes
@@ -259,13 +261,15 @@ def create_cpu_session_options(
 
     The arena is left at ORT's default on Windows (see ``cpu_arena_enabled``),
     where disabling it degrades inference latency by orders of magnitude.
+
+    Native thread pools default to one thread per session so loading several
+    models does not create a host-sized pool for each one. Explicit caller
+    values take precedence, including zero to request ORT's automatic sizing.
     """
     sess_options = ort.SessionOptions()
 
-    if intra_op_num_threads is not None:
-        sess_options.intra_op_num_threads = intra_op_num_threads
-    if inter_op_num_threads is not None:
-        sess_options.inter_op_num_threads = inter_op_num_threads
+    sess_options.intra_op_num_threads = 1 if intra_op_num_threads is None else intra_op_num_threads
+    sess_options.inter_op_num_threads = 1 if inter_op_num_threads is None else inter_op_num_threads
 
     if not onnx_thread_spinning_enabled():
         # ORT's thread pools spin-wait on all cores between inferences by

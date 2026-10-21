@@ -1,3 +1,5 @@
+> **Fork notice (2026-10-21):** This CPU-focused fork changes native thread defaults and neural second-pass admission. See [CPU_FORK.md](CPU_FORK.md) for measured tradeoffs, controls, and limitations. Upstream documentation follows.
+
 <div align="center">
 
 <img src=".github/assets/hero.svg" alt="Headroom — the context compression layer for AI agents. A 55,957 token agent prompt compresses to the 24,340 tokens actually sent to the model, and the FATAL line at item 67 survives byte for byte." width="880">
