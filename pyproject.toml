@@ -392,6 +392,14 @@ Changelog = "https://github.com/headroomlabs-ai/headroom/blob/main/CHANGELOG.md"
 # These packages don't appear as direct headroom deps but are pulled in
 # transitively; the floor pins below ensure uv resolves to patched versions.
 [tool.uv]
+# Temporary: fastembed 0.9.0 (latest) caps pillow<13, which blocks the fixes for
+# GHSA-332p-7hrc-92wf, GHSA-8g5g-8vmr-9782, GHSA-v9pv-5gc8-w2m6, GHSA-w889-685w-c8fh
+# (fixed in pillow 13.0.0, Python >=3.11). headroom only uses fastembed's
+# TextEmbedding, which never touches pillow. Remove once fastembed allows pillow 13.
+override-dependencies = [
+    "pillow>=13.0.0; python_version >= '3.11'",
+    "pillow>=12.3.0,<13; python_version < '3.11'",
+]
 constraint-dependencies = [
     # GHSA-5239-wwwm-4pmq (Low) — transitive via rich; fix at 2.20.0
     "pygments>=2.20.0",
