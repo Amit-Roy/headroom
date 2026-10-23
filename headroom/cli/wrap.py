@@ -56,7 +56,6 @@ if sys.platform == "win32" and hasattr(sys.stdout, "buffer"):
         sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 import click
-
 import tomllib
 
 from headroom import fsutil
