@@ -21,6 +21,8 @@ Usage:
     ANTHROPIC_BASE_URL=http://localhost:8787 claude
 """
 
+# Modified for the CPU-friendly fork: readiness waits for the Kompress probe.
+
 from __future__ import annotations
 
 import argparse
@@ -3545,6 +3547,30 @@ def create_app(config: ProxyConfig | None = None) -> FastAPI:
                     routers.append(transform)
         return routers
 
+    def _kompress_probe_blocked(compressors: list[Any] | None = None) -> bool:
+        if compressors is None:
+            compressors = []
+            for router in _kompress_health_routers():
+                for name in ("_kompress", "_kompress_remote"):
+                    compressor = getattr(router, name, None)
+                    if compressor is not None and all(
+                        compressor is not item for item in compressors
+                    ):
+                        compressors.append(compressor)
+        for compressor in compressors:
+            if getattr(compressor, "_degraded_reason", None):
+                return True
+            canary_thread = getattr(compressor, "_canary_thread", None)
+            if canary_thread is not None:
+                try:
+                    if canary_thread.is_alive():
+                        return True
+                except Exception:
+                    # Health inspection stays best-effort for compatible
+                    # compressor implementations and test doubles.
+                    pass
+        return False
+
     def _reconcile_kompress_health() -> bool:
         routers = _kompress_health_routers()
         if not routers:
@@ -3556,6 +3582,12 @@ def create_app(config: ProxyConfig | None = None) -> FastAPI:
                 compressor = getattr(router, name, None)
                 if compressor is not None and all(compressor is not item for item in compressors):
                     compressors.append(compressor)
+
+        # A loaded model is not ready for traffic while its startup canary is
+        # using the inference slot. A failed canary is terminal for this
+        # compressor instance; a module-level model cache must not promote it.
+        if _kompress_probe_blocked(compressors):
+            return True
 
         for compressor in compressors:
             try:
@@ -3593,6 +3625,7 @@ def create_app(config: ProxyConfig | None = None) -> FastAPI:
 
     def _health_checks() -> dict[str, dict[str, Any]]:
         kompress_enabled = _reconcile_kompress_health()
+        kompress_probe_blocked = _kompress_probe_blocked()
         memory_status = (
             proxy.memory_handler.health_status()
             if proxy.memory_handler
@@ -3640,7 +3673,7 @@ def create_app(config: ProxyConfig | None = None) -> FastAPI:
             ),
             "kompress": _component_health(
                 enabled=kompress_enabled,
-                ready=proxy.warmup.kompress.status == "loaded",
+                ready=proxy.warmup.kompress.status == "loaded" and not kompress_probe_blocked,
                 optional=True,
                 backend=proxy.warmup.kompress.info.get("backend", None),
             ),

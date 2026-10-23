@@ -12,6 +12,8 @@ Usage:
     >>> print(result.compressed)
 """
 
+# Modified for the CPU-friendly fork: optional pacing preserves ONNX outputs.
+
 from __future__ import annotations
 
 import contextlib
@@ -29,6 +31,7 @@ from functools import lru_cache
 from typing import Any, Literal
 
 from ..config import TransformResult
+from ..cpu_budget import cumulative_pacing_wait_seconds, paced_cpu_phase
 from ..log_safety import describe_exception, safe_id
 from ..offline import OFFLINE_ENV, OfflineEgressBlocked
 from ..onnx_runtime import (
@@ -747,13 +750,14 @@ class _OnnxModel:
         """Return [batch, seq] scores via ONNX Runtime."""
         import numpy as np
 
-        scores = self._session.run(
-            ["final_scores"],
-            {
-                "input_ids": np.asarray(input_ids, dtype=np.int64),
-                "attention_mask": np.asarray(attention_mask, dtype=np.int64),
-            },
-        )
+        with paced_cpu_phase():
+            scores = self._session.run(
+                ["final_scores"],
+                {
+                    "input_ids": np.asarray(input_ids, dtype=np.int64),
+                    "attention_mask": np.asarray(attention_mask, dtype=np.int64),
+                },
+            )
         return scores[0]  # [batch, seq] numpy array
 
     def get_keep_mask(self, input_ids: Any, attention_mask: Any) -> Any:
@@ -790,13 +794,14 @@ def _smoke_run(session: Any) -> None:
     """
     import numpy as np
 
-    session.run(
-        ["final_scores"],
-        {
-            "input_ids": np.zeros((1, 2), dtype=np.int64),
-            "attention_mask": np.ones((1, 2), dtype=np.int64),
-        },
-    )
+    with paced_cpu_phase():
+        session.run(
+            ["final_scores"],
+            {
+                "input_ids": np.zeros((1, 2), dtype=np.int64),
+                "attention_mask": np.ones((1, 2), dtype=np.int64),
+            },
+        )
 
 
 #: Per-stage load cost: stage name -> (wall-clock ms, loading-thread CPU ms).
@@ -885,11 +890,12 @@ def _create_onnx_session(
             ort = onnxruntime
         try:
             with _timed_stage(stage_ms, "session_build"):
-                session = ort.InferenceSession(
-                    onnx_path,
-                    _onnx_session_options(ort),
-                    providers=providers,
-                )
+                with paced_cpu_phase():
+                    session = ort.InferenceSession(
+                        onnx_path,
+                        _onnx_session_options(ort),
+                        providers=providers,
+                    )
             with _timed_stage(stage_ms, "smoke_run"):
                 _smoke_run(session)
             return session
@@ -1834,6 +1840,7 @@ class KompressCompressor(Transform):
             timeout_seconds=None,
         )
         assert semaphore is not None
+        pacing_wait_started = cumulative_pacing_wait_seconds()
         started = time.perf_counter()
         with contextlib.ExitStack() as stack:
             stack.callback(semaphore.release)
@@ -1842,7 +1849,9 @@ class KompressCompressor(Transform):
                 input_ids = input_ids.to(device)
                 attention_mask = attention_mask.to(device)
             model.get_keep_mask(input_ids, attention_mask)
-        return time.perf_counter() - started
+        elapsed = time.perf_counter() - started
+        pacing_wait = cumulative_pacing_wait_seconds() - pacing_wait_started
+        return max(0.0, elapsed - pacing_wait)
 
     def is_ready(self) -> bool:
         """True if the model is loaded so :meth:`compress` won't touch the network.

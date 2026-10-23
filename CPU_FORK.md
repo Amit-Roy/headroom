@@ -85,5 +85,14 @@ and direct neural compression can remain slow. These source patches do not
 change the live Agent Console installation. Live rollout requires separate
 integration and fallback validation.
 
+Set `HEADROOM_CPU_TARGET_PERCENT` to a finite value from 1 to 100 to enable
+cooperative process-CPU pacing around ONNX session construction and inference.
+Unset or set it to `0` to disable pacing. Pacing serializes these selected
+phases and sleeps on the calling worker thread after each phase; it does not
+change model inputs or outputs. This is not a strict CPU cap: a native call
+lasting over 30 seconds can still trip the existing guard. Use an OS CPU quota
+for a strict ceiling. Startup canary timing excludes deliberate pacing sleeps,
+while request deadlines continue to include them.
+
 The original Apache-2.0 license and attribution notices are retained. Modified
 upstream files carry a notice describing the fork's changes.
