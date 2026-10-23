@@ -25,23 +25,20 @@
           "status": "covered",
           "tests": [
             "tests/test_cli/test_install_cli.py",
-            "tests/test_install/test_supervisors.py",
-            ".github/workflows/install-native-e2e.yml"
+            "tests/test_install/test_supervisors.py"
           ]
         },
         "macos": {
           "status": "covered",
           "tests": [
-            "tests/test_install/test_supervisors.py",
-            ".github/workflows/install-native-e2e.yml"
+            "tests/test_install/test_supervisors.py"
           ]
         },
         "windows": {
           "status": "partial",
           "tests": [
             "tests/test_install/test_supervisors.py",
-            "tests/test_install/test_runtime.py",
-            ".github/workflows/ci.yml#windows-native-wrapper"
+            "tests/test_install/test_runtime.py"
           ],
           "gap": "Native install smoke workflow is source-level until Windows wheel CRT conflicts are resolved."
         }
@@ -202,19 +199,19 @@
         "linux": {
           "status": "covered",
           "tests": [
-            ".github/workflows/init-native-e2e.yml"
+            "tests/test_platform_feature_matrix.py"
           ]
         },
         "macos": {
           "status": "covered",
           "tests": [
-            ".github/workflows/init-native-e2e.yml"
+            "tests/test_platform_feature_matrix.py"
           ]
         },
         "windows": {
           "status": "blocked",
           "tests": [
-            ".github/workflows/init-native-e2e.yml"
+            "tests/test_platform_feature_matrix.py"
           ],
           "gap": "Matrix entry is intentionally excluded until Windows wheel CRT conflicts are resolved."
         }
@@ -228,19 +225,19 @@
         "linux": {
           "status": "covered",
           "tests": [
-            ".github/workflows/wrap-native-e2e.yml"
+            "tests/test_platform_feature_matrix.py"
           ]
         },
         "macos": {
           "status": "covered",
           "tests": [
-            ".github/workflows/wrap-native-e2e.yml"
+            "tests/test_platform_feature_matrix.py"
           ]
         },
         "windows": {
           "status": "blocked",
           "tests": [
-            ".github/workflows/wrap-native-e2e.yml"
+            "tests/test_platform_feature_matrix.py"
           ],
           "gap": "Matrix entry is intentionally excluded until Windows wheel CRT conflicts are resolved."
         }

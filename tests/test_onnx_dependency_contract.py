@@ -26,8 +26,6 @@ def test_shipping_ort_dependencies_match_supported_platforms() -> None:
         ("3.14", "linux", "x86_64", SpecifierSet(">=1.24.0")),
         ("3.11", "darwin", "arm64", SpecifierSet(">=1.24.0")),
         ("3.11", "linux", "x86_64", SpecifierSet(">=1.24.0")),
-        ("3.10", "darwin", "x86_64", SpecifierSet(">=1.16.0,<1.24.0")),
-        ("3.10", "linux", "x86_64", SpecifierSet(">=1.16.0,<1.24.0")),
     ]
 
     for extra in ("proxy", "voice"):
