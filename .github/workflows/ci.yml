@@ -9,7 +9,7 @@ name: CI
 #   test-extras / test-agno / build / commitlint / workflow-validation / *-e2e — preserved
 #
 # Notes: CPU-only torch everywhere (no CUDA stack); test shards run HF_HUB_OFFLINE.
-# Multi-version (3.10/3.11/3.13) coverage on main is a planned follow-up.
+# Multi-version (3.11/3.13) coverage on main is a planned follow-up.
 # Windows wheel (win_amd64) built separately — builds the Rust ext just like the
 # Linux wheel, then uploads as a separate artifact for downstream consumption.
 

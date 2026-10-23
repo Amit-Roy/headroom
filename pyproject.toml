@@ -8,7 +8,7 @@ version = "0.41.0"
 description = "The Context Optimization Layer for LLM Applications - Cut costs by 50-90%"
 readme = "README.md"
 license = "Apache-2.0"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [
     { name = "Headroom Contributors" }
 ]
@@ -35,7 +35,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -50,7 +49,7 @@ dependencies = [
     "pydantic>=2.0.0",            # Config and data models
     # Model registry, pricing and non-core providers; all lazily imported and
     # ImportError-guarded. 1.96.2 is the first litellm with prebuilt wheels for
-    # Python 3.10-3.14 on Linux, macOS and Windows: older releases either reject
+    # Python 3.11-3.14 on Linux, macOS and Windows: older releases either reject
     # Python 3.14 (GH #956) or fall back to a Rust source build.
     "litellm>=1.96.2,<2.0",
     "click>=8.3.3",               # CLI framework; PYSEC-2026-2132 fix (command injection in click.edit())
@@ -63,7 +62,6 @@ dependencies = [
     # future patched one.
     "ast-grep-cli>=0.30.0,!=0.44.1",
     "pyyaml>=6.0",                # omp wrap: parse/merge omp's models.yml registry
-    "tomli>=2.0.0; python_version < '3.11'",  # tomllib backport for helper scripts
     "tomlkit>=0.13.0,<1.0",       # Loss-minimizing Codex config recovery
     # Verify upstream TLS through the OS trust store (macOS Keychain, Windows
     # cert store), where IT installs corporate TLS-inspection roots (Zscaler,
@@ -97,12 +95,11 @@ proxy = [
     "zstandard>=0.20.0",          # Decompress zstd request bodies (Codex, etc.)
     "websockets>=13.0",           # WebSocket proxy for /v1/responses (Codex gpt-5.4+)
     # ORT <1.24 deadlocks in Rust fastembed instead of returning an init error.
-    # Python 3.10 keeps Python-only ORT and bypasses native detection. Intel
-    # macOS also needs older ORT because newer releases have no x86_64 wheels.
+    # Intel macOS needs older ORT because newer releases have no x86_64 wheels.
     # No ORT wheel exists for Intel macOS Python 3.14+; optional ML detection
     # falls back to heuristics there. Transitive ORT backends use the same gate.
-    "onnxruntime>=1.24.0; python_version>='3.11' and (sys_platform != 'darwin' or platform_machine != 'x86_64')",
-    "onnxruntime>=1.16.0,<1.24.0; python_version<'3.11' or (python_version<'3.14' and sys_platform == 'darwin' and platform_machine == 'x86_64')",
+    "onnxruntime>=1.24.0; (sys_platform != 'darwin' or platform_machine != 'x86_64')",
+    "onnxruntime>=1.16.0,<1.24.0; (python_version<'3.14' and sys_platform == 'darwin' and platform_machine == 'x86_64')",
     "transformers>=5.5.0,<6.0",   # Tokenizer only (for Kompress)
     # File watcher for live code graph reindexing (--code-graph). watchdog 6.0.0
     # publishes no macOS wheel for Python 3.14, so installing it there needs a C
@@ -223,7 +220,7 @@ otel = [
 ]
 # any-llm multi-provider backend (requires Python 3.11+)
 anyllm = [
-    "any-llm-sdk>=1.0.0; python_version >= '3.11'",
+    "any-llm-sdk>=1.0.0",
 ]
 # LangChain integration
 langchain = [
@@ -263,8 +260,8 @@ mcp = [
 ]
 # Voice filler detection
 voice = [
-    "onnxruntime>=1.24.0; python_version>='3.11' and (sys_platform != 'darwin' or platform_machine != 'x86_64')",
-    "onnxruntime>=1.16.0,<1.24.0; python_version<'3.11' or (python_version<'3.14' and sys_platform == 'darwin' and platform_machine == 'x86_64')",
+    "onnxruntime>=1.24.0; (sys_platform != 'darwin' or platform_machine != 'x86_64')",
+    "onnxruntime>=1.16.0,<1.24.0; (python_version<'3.14' and sys_platform == 'darwin' and platform_machine == 'x86_64')",
     "transformers>=5.5.0,<6.0",
     "torch>=2.12.1; sys_platform != 'darwin' or platform_machine != 'x86_64'",
 ]
@@ -394,11 +391,10 @@ Changelog = "https://github.com/headroomlabs-ai/headroom/blob/main/CHANGELOG.md"
 [tool.uv]
 # Temporary: fastembed 0.9.0 (latest) caps pillow<13, which blocks the fixes for
 # GHSA-332p-7hrc-92wf, GHSA-8g5g-8vmr-9782, GHSA-v9pv-5gc8-w2m6, GHSA-w889-685w-c8fh
-# (fixed in pillow 13.0.0, Python >=3.11). headroom only uses fastembed's
+# (fixed in pillow 13.0.0). headroom only uses fastembed's
 # TextEmbedding, which never touches pillow. Remove once fastembed allows pillow 13.
 override-dependencies = [
-    "pillow>=13.0.0; python_version >= '3.11'",
-    "pillow>=12.3.0,<13; python_version < '3.11'",
+    "pillow>=13.0.0",
 ]
 constraint-dependencies = [
     # GHSA-5239-wwwm-4pmq (Low) — transitive via rich; fix at 2.20.0
@@ -463,7 +459,7 @@ features = ["extension-module"]
 bindings = "pyo3"
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 line-length = 100
 
 [tool.ruff.lint]
@@ -490,7 +486,7 @@ quote-style = "double"
 indent-style = "space"
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

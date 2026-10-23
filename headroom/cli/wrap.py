@@ -57,10 +57,7 @@ if sys.platform == "win32" and hasattr(sys.stdout, "buffer"):
 
 import click
 
-if sys.version_info >= (3, 11):
-    import tomllib
-else:  # pragma: no cover - exercised only on Python 3.10
-    import tomli as tomllib  # type: ignore[no-redef]
+import tomllib
 
 from headroom import fsutil
 from headroom._version import __version__ as _HEADROOM_VERSION
