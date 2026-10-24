@@ -85,5 +85,37 @@ and direct neural compression can remain slow. These source patches do not
 change the live Agent Console installation. Live rollout requires separate
 integration and fallback validation.
 
+Set `HEADROOM_CPU_TARGET_PERCENT` to a finite value from 1 to 100 to enable
+cooperative process-CPU pacing around ONNX session construction and inference.
+Unset or set it to `0` to disable pacing. Pacing serializes these selected
+phases and sleeps on the calling worker thread after each phase; it does not
+change model inputs or outputs. This is not a strict CPU cap: a native call
+lasting over 30 seconds can still trip the existing guard. Use an OS CPU quota
+for a strict ceiling. Startup canary timing excludes deliberate pacing sleeps,
+while request deadlines continue to include them.
+
 The original Apache-2.0 license and attribution notices are retained. Modified
 upstream files carry a notice describing the fork's changes.
+
+## Cooperative pacing measurement
+
+An isolated loopback proxy with `HEADROOM_CPU_TARGET_PERCENT=60` completed
+95.2 seconds of sustained unique-input traffic after 32.2 seconds of startup.
+All eight requests returned HTTP 200 and compressed the synthetic search tool
+output from 2,919 to 552 tokens (81.1% savings). The first four output hashes
+matched the earlier unpaced fork run. This measures tool output, not whole
+conversation savings or task accuracy.
+
+Time-weighted process CPU averaged 63.0% of one core across startup and traffic;
+individual five-second samples peaked at 98.8%. The unchanged 80%-for-30-seconds
+CPU guard did not trip. Peak RSS was 862.4 MiB. Requests took 10.3–13.8 seconds,
+versus 6.2–7.1 seconds for the earlier unpaced four-request run. The slowest
+responding liveness probe took 96.4 ms. These are diagnostic measurements on a
+shared host, not a strict ceiling or a production latency guarantee.
+
+Health now keeps Kompress unready while its startup probe holds the inference
+slot, and after a degraded probe. The probe's runtime check excludes deliberate
+pacing sleep; ordinary compression deadlines still include it. Large requests
+can therefore reach existing deadlines and fall back to original content.
+
+Raw measurements: `benchmarks/results/cpu-budget-canary.json`.

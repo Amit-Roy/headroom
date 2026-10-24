@@ -24,6 +24,14 @@ class _ReadyCompressor:
         return self.backend
 
 
+class _ProbeThread:
+    def __init__(self, alive=True):
+        self.alive = alive
+
+    def is_alive(self):
+        return self.alive
+
+
 def _health_app(monkeypatch, compressor=None, *, disabled=False, **config_kwargs):
     monkeypatch.setenv("HEADROOM_SKIP_UPSTREAM_CHECK", "1")
     app = create_app(
@@ -92,6 +100,41 @@ def test_readyz_promotes_deferred_kompress_after_runtime_load(monkeypatch):
     # The promotion must also clear the startup marker, otherwise the slot
     # serializes as loaded-but-deferred in /debug/warmup.
     assert proxy.warmup.kompress.info["source_status"] == "runtime"
+
+
+def test_health_waits_for_kompress_canary_then_promotes(monkeypatch):
+    compressor = _ReadyCompressor()
+    compressor._canary_thread = _ProbeThread(alive=True)
+    app, proxy = _health_app(monkeypatch, compressor)
+    proxy.warmup.kompress.mark_loaded(handle=compressor, backend="onnx")
+    client = TestClient(app)
+
+    pending = client.get("/health").json()["checks"]["kompress"]
+    assert pending["ready"] is False
+    assert proxy.warmup.kompress.status == "loaded"
+
+    compressor._canary_thread.alive = False
+    completed = client.get("/health").json()["checks"]["kompress"]
+    assert completed["ready"] is True
+    assert proxy.warmup.kompress.status == "loaded"
+
+
+def test_health_does_not_promote_cached_kompress_after_failed_canary(monkeypatch):
+    model = object()
+    monkeypatch.setattr(
+        kompress_compressor,
+        "_kompress_cache",
+        {kompress_compressor.HF_MODEL_ID: (model, object(), "onnx")},
+    )
+    compressor = _ReadyCompressor(ready=False)
+    compressor._degraded_reason = "canary exceeded threshold"
+    compressor._canary_thread = _ProbeThread(alive=False)
+    app, proxy = _health_app(monkeypatch, compressor)
+
+    check = TestClient(app).get("/health").json()["checks"]["kompress"]
+
+    assert check["ready"] is False
+    assert proxy.warmup.kompress.status == "null"
 
 
 @pytest.mark.parametrize("attached", [False, True])
