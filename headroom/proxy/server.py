@@ -3547,16 +3547,20 @@ def create_app(config: ProxyConfig | None = None) -> FastAPI:
                     routers.append(transform)
         return routers
 
+    def _kompress_health_compressors() -> list[Any]:
+        compressors: list[Any] = []
+        for router in _kompress_health_routers():
+            for name in ("_kompress", "_kompress_remote"):
+                compressor = getattr(router, name, None)
+                if compressor is not None and all(
+                    compressor is not item for item in compressors
+                ):
+                    compressors.append(compressor)
+        return compressors
+
     def _kompress_probe_blocked(compressors: list[Any] | None = None) -> bool:
         if compressors is None:
-            compressors = []
-            for router in _kompress_health_routers():
-                for name in ("_kompress", "_kompress_remote"):
-                    compressor = getattr(router, name, None)
-                    if compressor is not None and all(
-                        compressor is not item for item in compressors
-                    ):
-                        compressors.append(compressor)
+            compressors = _kompress_health_compressors()
         for compressor in compressors:
             if getattr(compressor, "_degraded_reason", None):
                 return True
@@ -3576,12 +3580,7 @@ def create_app(config: ProxyConfig | None = None) -> FastAPI:
         if not routers:
             return False
 
-        compressors: list[Any] = []
-        for router in routers:
-            for name in ("_kompress", "_kompress_remote"):
-                compressor = getattr(router, name, None)
-                if compressor is not None and all(compressor is not item for item in compressors):
-                    compressors.append(compressor)
+        compressors = _kompress_health_compressors()
 
         # A loaded model is not ready for traffic while its startup canary is
         # using the inference slot. A failed canary is terminal for this
