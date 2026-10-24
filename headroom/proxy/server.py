@@ -3552,9 +3552,7 @@ def create_app(config: ProxyConfig | None = None) -> FastAPI:
         for router in _kompress_health_routers():
             for name in ("_kompress", "_kompress_remote"):
                 compressor = getattr(router, name, None)
-                if compressor is not None and all(
-                    compressor is not item for item in compressors
-                ):
+                if compressor is not None and all(compressor is not item for item in compressors):
                     compressors.append(compressor)
         return compressors
 
