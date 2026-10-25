@@ -45,6 +45,7 @@ classifiers = [
 ]
 dependencies = [
     # Core: lightweight compression (SmartCrusher, ContentRouter, CCR, TOIN)
+    "certifi>=2026.10.19",         # GHSA-6q48-6c7w-9gw2: remove compromised emSign root
     "tiktoken>=0.5.0",            # Tokenizer for all compressors
     "pydantic>=2.0.0",            # Config and data models
     # Model registry, pricing and non-core providers; all lazily imported and
@@ -419,6 +420,10 @@ constraint-dependencies = [
     # PYSEC-2026-3552/3553/3554 — PKCS#7 and certificate verification fixes
     "cryptography>=50.0.0",
 ]
+
+[tool.uv.exclude-newer-package]
+certifi = "2026-10-25T00:00:00Z"
+pillow = "2026-12-31T00:00:00Z"
 
 # Pin the project's package index to public PyPI. Without this, `uv lock`
 # inherits the developer's user-level `~/.config/uv/uv.toml` index
