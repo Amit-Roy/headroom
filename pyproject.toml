@@ -52,7 +52,7 @@ dependencies = [
     # ImportError-guarded. 1.96.2 is the first litellm with prebuilt wheels for
     # Python 3.11-3.14 on Linux, macOS and Windows: older releases either reject
     # Python 3.14 (GH #956) or fall back to a Rust source build.
-    "litellm>=1.96.2,<2.0",
+    "litellm>=1.101.3,<2.0",
     "click>=8.3.3",               # CLI framework; PYSEC-2026-2132 fix (command injection in click.edit())
     "rich>=13.0.0",               # Rich terminal output
     "opentelemetry-api>=1.24.0",  # Safe no-op OTEL API for instrumentation
@@ -242,7 +242,7 @@ agno = [
 ]
 # AWS Strands Agents SDK integration
 strands = [
-    "strands-agents>=0.1.0",
+    "strands-agents>=1.48.0",
 ]
 # CrewAI: no extra on purpose. The integration only wraps CrewAI tools, so it
 # uses whatever CrewAI the user already has (`pip install headroom-ai crewai`).
@@ -305,7 +305,7 @@ dev = [
     "pre-commit>=3.0.0",
     "openai>=1.0.0",
     "anthropic>=0.18.0",
-    "litellm>=1.96.2,<2.0",       # see core deps note
+    "litellm>=1.101.3,<2.0",       # see core deps note
     "fastapi>=0.100.0",
     "uvicorn>=0.23.0,<1.0",
     # socks: test_upstream_guard proves a guarded upstream is refused on EVERY
@@ -398,6 +398,8 @@ override-dependencies = [
     "pillow>=13.0.0",
 ]
 constraint-dependencies = [
+    # CVE-2026-112940: avoid unsafe lock-file symlink handling.
+    "filelock>=4.2.1",
     # GHSA-5239-wwwm-4pmq (Low) — transitive via rich; fix at 2.20.0
     "pygments>=2.20.0",
     # GHSA-4xgf-cpjx-pc3j (Medium) — transitive via mcp; fix at 2.14.2

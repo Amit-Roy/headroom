@@ -3,7 +3,8 @@
 litellm below 1.93 declared requires-python <3.14 (GH #956), and 1.92 to 1.96.0
 shipped wheels for only some platforms, so pip fell back to a Rust source build.
 1.96.2 is the first release with prebuilt wheels for Python 3.10 to 3.14 on
-Linux, macOS and Windows, so litellm is required everywhere from that floor.
+Linux, macOS and Windows. The security floor is now 1.101.3, which retains
+those wheels and fixes CVE-2026-114612.
 
 watchdog 6.0.0 publishes no macOS wheel for Python 3.14. It only powers the
 optional code graph watcher, so it is skipped there and the proxy must start
@@ -28,7 +29,7 @@ from packaging.version import Version
 PYPROJECT = Path(__file__).resolve().parents[1] / "pyproject.toml"
 SUPPORTED_PYTHONS = ("3.10", "3.11", "3.12", "3.13", "3.14")
 PLATFORMS = ("linux", "darwin", "win32")
-LITELLM_FLOOR = Version("1.96.2")
+LITELLM_FLOOR = Version("1.101.3")
 
 
 def _requirements(name: str) -> list[Requirement]:
@@ -59,6 +60,7 @@ def test_litellm_is_required_on_every_supported_python() -> None:
 def test_litellm_floor_has_wheels_for_python_314() -> None:
     for r in _requirements("litellm"):
         assert not r.specifier.contains("1.96.1"), f"{r}: allows litellm without 3.14 wheels"
+        assert not r.specifier.contains("1.101.0"), f"{r}: allows vulnerable litellm"
         assert r.specifier.contains(str(LITELLM_FLOOR)), f"{r}: excludes {LITELLM_FLOOR}"
 
 
